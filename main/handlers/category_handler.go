@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"go-learn/main/models"
 	"net/http"
 	"slices"
@@ -11,14 +12,15 @@ import (
 )
 
 var categories = []models.Category{}
+var nextCategoryID = 1
 
 func GetAllCategories(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application.json")
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(categories)
 }
 
 func CreateCategory(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application.json")
+	w.Header().Set("Content-Type", "application/json")
 
 	var newCategory models.Category
 
@@ -30,9 +32,16 @@ func CreateCategory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	validateCategory(newCategory, w)
+	err = validateCategory(newCategory)
 
-	newCategory.ID = len(categories) - 1
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	newCategory.ID = nextCategoryID
+	nextCategoryID++
 
 	categories = append(categories, newCategory)
 
@@ -41,7 +50,7 @@ func CreateCategory(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetCategoryByID(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application.json")
+	w.Header().Set("Content-Type", "application/json")
 
 	vars := mux.Vars(r)
 	idStr := vars["id"]
@@ -51,10 +60,11 @@ func GetCategoryByID(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]string{"error": "invalid category id"})
+		return
 	}
 
-	for idx, category := range categories {
-		if idx == id {
+	for _, category := range categories {
+		if category.ID == id {
 			json.NewEncoder(w).Encode(category)
 			return
 		}
@@ -65,7 +75,7 @@ func GetCategoryByID(w http.ResponseWriter, r *http.Request) {
 }
 
 func UpdateCategory(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application.json")
+	w.Header().Set("Content-Type", "application/json")
 
 	vars := mux.Vars(r)
 	idStr := vars["id"]
@@ -75,6 +85,7 @@ func UpdateCategory(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]string{"error": "invalid category id"})
+		return
 	}
 
 	var updatedCategory models.Category
@@ -87,7 +98,13 @@ func UpdateCategory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	validateCategory(updatedCategory, w)
+	err = validateCategory(updatedCategory)
+
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
 
 	for i, category := range categories {
 		if category.ID == id {
@@ -102,7 +119,7 @@ func UpdateCategory(w http.ResponseWriter, r *http.Request) {
 }
 
 func DeleteCategory(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application.json")
+	w.Header().Set("Content-Type", "application/json")
 
 	vars := mux.Vars(r)
 	idStr := vars["id"]
@@ -112,11 +129,14 @@ func DeleteCategory(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]string{"error": "invalid category id"})
+		return
 	}
 
 	for i, category := range categories {
 		if category.ID == id {
 			categories = slices.Delete(categories, i, i+1)
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(map[string]string{"message": "category deleted"})
 			return
 		}
 	}
@@ -125,10 +145,18 @@ func DeleteCategory(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"error": "category not found"})
 }
 
-func validateCategory(category models.Category, w http.ResponseWriter) {
+func validateCategory(category models.Category) error {
 	if category.Name == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "category title is required"})
-		return
+		return errors.New("category name is required")
 	}
+	return nil
+}
+
+func CategoryExists(categoryID int) bool {
+	for _, category := range categories {
+		if category.ID == categoryID {
+			return true
+		}
+	}
+	return false
 }

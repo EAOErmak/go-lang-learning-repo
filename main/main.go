@@ -32,5 +32,8 @@ func main() {
 	router.HandleFunc("/categories/{id}", handlers.UpdateCategory).Methods("PUT")
 	router.HandleFunc("/categories/{id}", handlers.DeleteCategory).Methods("DELETE")
 
-	http.ListenAndServe(":8080", router)
+	err := http.ListenAndServe(":8080", router)
+	if err != nil {
+		panic(err)
+	}
 }

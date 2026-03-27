@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"go-learn/main/models"
 	"net/http"
 	"slices"
@@ -11,14 +12,15 @@ import (
 )
 
 var books = []models.Book{}
+var nextBookID = 1
 
 func GetAllBooks(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application.json")
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(books)
 }
 
 func CreateBook(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application.json")
+	w.Header().Set("Content-Type", "application/json")
 
 	var newBook models.Book
 
@@ -30,9 +32,16 @@ func CreateBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	validateBook(newBook, w)
+	err = validateBook(newBook)
 
-	newBook.ID = len(books) - 1
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	newBook.ID = nextBookID
+	nextBookID++
 
 	books = append(books, newBook)
 
@@ -41,7 +50,7 @@ func CreateBook(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetBookByID(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application.json")
+	w.Header().Set("Content-Type", "application/json")
 
 	vars := mux.Vars(r)
 	idStr := vars["id"]
@@ -51,10 +60,11 @@ func GetBookByID(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]string{"error": "invalid book id"})
+		return
 	}
 
-	for idx, book := range books {
-		if idx == id {
+	for _, book := range books {
+		if book.ID == id {
 			json.NewEncoder(w).Encode(book)
 			return
 		}
@@ -65,7 +75,7 @@ func GetBookByID(w http.ResponseWriter, r *http.Request) {
 }
 
 func UpdateBook(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application.json")
+	w.Header().Set("Content-Type", "application/json")
 
 	vars := mux.Vars(r)
 	idStr := vars["id"]
@@ -75,6 +85,7 @@ func UpdateBook(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]string{"error": "invalid book id"})
+		return
 	}
 
 	var updatedBook models.Book
@@ -87,7 +98,13 @@ func UpdateBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	validateBook(updatedBook, w)
+	err = validateBook(updatedBook)
+
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
 
 	for i, book := range books {
 		if book.ID == id {
@@ -105,7 +122,7 @@ func UpdateBook(w http.ResponseWriter, r *http.Request) {
 }
 
 func DeleteBook(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application.json")
+	w.Header().Set("Content-Type", "application/json")
 
 	vars := mux.Vars(r)
 	idStr := vars["id"]
@@ -115,11 +132,14 @@ func DeleteBook(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]string{"error": "invalid book id"})
+		return
 	}
 
 	for i, book := range books {
 		if book.ID == id {
 			books = slices.Delete(books, i, i+1)
+			w.WriteHeader(http.StatusOK)
+			json.NewEncoder(w).Encode(map[string]string{"message": "book deleted"})
 			return
 		}
 	}
@@ -128,28 +148,21 @@ func DeleteBook(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"error": "book not found"})
 }
 
-func validateBook(book models.Book, w http.ResponseWriter) {
+func validateBook(book models.Book) error {
 	if book.Title == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "book title is required"})
-		return
+		return errors.New("book title is required")
 	}
 
-	if book.AuthorID < 1 {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "author is required"})
-		return
+	if book.AuthorID < 1 || !AuthorExists(book.AuthorID) {
+		return errors.New("author is required")
 	}
 
-	if book.CategoryID < 1 {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "category is required"})
-		return
+	if book.CategoryID < 1 || !CategoryExists(book.CategoryID) {
+		return errors.New("category is required")
 	}
 
 	if book.Price < 0 {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "price cannot be negative"})
-		return
+		return errors.New("price cannot be negative")
 	}
+	return nil
 }
