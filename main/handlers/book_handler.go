@@ -1,93 +1,86 @@
 package handlers
 
 import (
-	"encoding/json"
+	"errors"
 	"go-learn/main/models"
 	"net/http"
 	"slices"
 	"strconv"
 
-	"github.com/gorilla/mux"
+	"github.com/gin-gonic/gin"
 )
 
 var books = []models.Book{}
+var nextBookID = 1
 
-func GetAllBooks(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application.json")
-	json.NewEncoder(w).Encode(books)
+func GetAllBooks(c *gin.Context) {
+	c.JSON(http.StatusOK, books)
 }
 
-func CreateBook(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application.json")
-
+func CreateBook(c *gin.Context) {
 	var newBook models.Book
 
-	err := json.NewDecoder(r.Body).Decode(&newBook)
-
+	err := c.ShouldBindJSON(&newBook)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "invalid json"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid json"})
 		return
 	}
 
-	validateBook(newBook, w)
+	err = validateBook(newBook)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
-	newBook.ID = len(books) - 1
+	newBook.ID = nextBookID
+	nextBookID++
 
 	books = append(books, newBook)
 
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(newBook)
+	c.JSON(http.StatusCreated, newBook)
 }
 
-func GetBookByID(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application.json")
-
-	vars := mux.Vars(r)
-	idStr := vars["id"]
+func GetBookByID(c *gin.Context) {
+	idStr := c.Param("id")
 
 	id, err := strconv.Atoi(idStr)
-
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "invalid book id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid book id"})
+		return
 	}
 
-	for idx, book := range books {
-		if idx == id {
-			json.NewEncoder(w).Encode(book)
+	for _, book := range books {
+		if book.ID == id {
+			c.JSON(http.StatusOK, book)
 			return
 		}
 	}
 
-	w.WriteHeader(http.StatusNotFound)
-	json.NewEncoder(w).Encode(map[string]string{"error": "book not found"})
+	c.JSON(http.StatusNotFound, gin.H{"error": "book not found"})
 }
 
-func UpdateBook(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application.json")
-
-	vars := mux.Vars(r)
-	idStr := vars["id"]
+func UpdateBook(c *gin.Context) {
+	idStr := c.Param("id")
 
 	id, err := strconv.Atoi(idStr)
-
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "invalid book id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid book id"})
+		return
 	}
 
 	var updatedBook models.Book
 
-	err = json.NewDecoder(r.Body).Decode(&updatedBook)
-
+	err = c.ShouldBindJSON(&updatedBook)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "invalid json"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid json"})
 		return
 	}
 
-	validateBook(updatedBook, w)
+	err = validateBook(updatedBook)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
 	for i, book := range books {
 		if book.ID == id {
@@ -95,61 +88,49 @@ func UpdateBook(w http.ResponseWriter, r *http.Request) {
 			books[i].AuthorID = updatedBook.AuthorID
 			books[i].CategoryID = updatedBook.CategoryID
 			books[i].Price = updatedBook.Price
-			json.NewEncoder(w).Encode(books[i])
+			c.JSON(http.StatusOK, books[i])
 			return
 		}
 	}
 
-	w.WriteHeader(http.StatusNotFound)
-	json.NewEncoder(w).Encode(map[string]string{"error": "book not found"})
+	c.JSON(http.StatusNotFound, gin.H{"error": "book not found"})
 }
 
-func DeleteBook(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application.json")
-
-	vars := mux.Vars(r)
-	idStr := vars["id"]
+func DeleteBook(c *gin.Context) {
+	idStr := c.Param("id")
 
 	id, err := strconv.Atoi(idStr)
-
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "invalid book id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid book id"})
+		return
 	}
 
 	for i, book := range books {
 		if book.ID == id {
 			books = slices.Delete(books, i, i+1)
+			c.JSON(http.StatusOK, gin.H{"message": "book deleted"})
 			return
 		}
 	}
 
-	w.WriteHeader(http.StatusNotFound)
-	json.NewEncoder(w).Encode(map[string]string{"error": "book not found"})
+	c.JSON(http.StatusNotFound, gin.H{"error": "book not found"})
 }
 
-func validateBook(book models.Book, w http.ResponseWriter) {
+func validateBook(book models.Book) error {
 	if book.Title == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "book title is required"})
-		return
+		return errors.New("book title is required")
 	}
 
 	if book.AuthorID < 1 {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "author is required"})
-		return
+		return errors.New("author is required")
 	}
 
 	if book.CategoryID < 1 {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "category is required"})
-		return
+		return errors.New("category is required")
 	}
 
 	if book.Price < 0 {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "price cannot be negative"})
-		return
+		return errors.New("price cannot be negative")
 	}
+	return nil
 }

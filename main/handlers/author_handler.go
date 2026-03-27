@@ -1,13 +1,13 @@
 package handlers
 
 import (
-	"encoding/json"
+	"errors"
 	"go-learn/main/models"
 	"net/http"
 	"slices"
 	"strconv"
 
-	"github.com/gorilla/mux"
+	"github.com/gin-gonic/gin"
 )
 
 //Author
@@ -17,123 +17,112 @@ import (
 
 var authors = []models.Author{}
 
-func GetAllAuthors(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application.json")
-	json.NewEncoder(w).Encode(authors)
+var nextAuthorID = 1
+
+func GetAllAuthors(c *gin.Context) {
+	c.JSON(http.StatusOK, authors)
 }
 
-func CreateAuthor(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application.json")
-
+func CreateAuthor(c *gin.Context) {
 	var newAuthor models.Author
 
-	err := json.NewDecoder(r.Body).Decode(&newAuthor)
-
+	err := c.ShouldBindJSON(&newAuthor)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "invalid json"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid json"})
 		return
 	}
 
-	validateAuthor(newAuthor, w)
+	err = validateAuthor(newAuthor)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
-	newAuthor.ID = len(authors) - 1
+	newAuthor.ID = nextAuthorID
+	nextAuthorID++
 
 	authors = append(authors, newAuthor)
 
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(newAuthor)
+	c.JSON(http.StatusCreated, newAuthor)
 }
 
-func GetAuthorByID(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application.json")
-
-	vars := mux.Vars(r)
-	idStr := vars["id"]
+func GetAuthorByID(c *gin.Context) {
+	idStr := c.Param("id")
 
 	id, err := strconv.Atoi(idStr)
-
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "invalid author id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid Author id"})
+		return
 	}
 
-	for idx, author := range authors {
-		if idx == id {
-			json.NewEncoder(w).Encode(author)
+	for _, author := range authors {
+		if author.ID == id {
+			c.JSON(http.StatusOK, author)
 			return
 		}
 	}
 
-	w.WriteHeader(http.StatusNotFound)
-	json.NewEncoder(w).Encode(map[string]string{"error": "author not found"})
+	c.JSON(http.StatusNotFound, gin.H{"error": "Author not found"})
 }
 
-func UpdateAuthor(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application.json")
-
-	vars := mux.Vars(r)
-	idStr := vars["id"]
+func UpdateAuthor(c *gin.Context) {
+	idStr := c.Param("id")
 
 	id, err := strconv.Atoi(idStr)
-
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "invalid author id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid Author id"})
+		return
 	}
 
 	var updatedAuthor models.Author
 
-	err = json.NewDecoder(r.Body).Decode(&updatedAuthor)
-
+	err = c.ShouldBindJSON(&updatedAuthor)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "invalid json"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid json"})
 		return
 	}
 
-	validateAuthor(updatedAuthor, w)
+	err = validateAuthor(updatedAuthor)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
 	for i, author := range authors {
 		if author.ID == id {
 			authors[i].Name = updatedAuthor.Name
-			json.NewEncoder(w).Encode(authors[i])
+			c.JSON(http.StatusOK, authors[i])
 			return
 		}
 	}
 
-	w.WriteHeader(http.StatusNotFound)
-	json.NewEncoder(w).Encode(map[string]string{"error": "author not found"})
+	c.JSON(http.StatusNotFound, gin.H{"error": "Author not found"})
 }
 
-func DeleteAuthor(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application.json")
-
-	vars := mux.Vars(r)
-	idStr := vars["id"]
+func DeleteAuthor(c *gin.Context) {
+	idStr := c.Param("id")
 
 	id, err := strconv.Atoi(idStr)
-
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "invalid author id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid Author id"})
+		return
 	}
 
 	for i, author := range authors {
 		if author.ID == id {
 			authors = slices.Delete(authors, i, i+1)
+			c.JSON(http.StatusOK, gin.H{"message": "Author deleted"})
 			return
 		}
 	}
 
-	w.WriteHeader(http.StatusNotFound)
-	json.NewEncoder(w).Encode(map[string]string{"error": "author not found"})
+	c.JSON(http.StatusNotFound, gin.H{"error": "Author not found"})
 }
 
-func validateAuthor(author models.Author, w http.ResponseWriter) {
+func validateAuthor(author models.Author) error {
 	if author.Name == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "author title is required"})
-		return
+		return errors.New("Author name is required")
 	}
+
+	return nil
 }

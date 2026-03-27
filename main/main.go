@@ -3,34 +3,32 @@ package main
 import (
 	"go-learn/main/handlers"
 
-	"net/http"
-
-	"github.com/gorilla/mux"
+	"github.com/gin-gonic/gin"
 )
 
 func main() {
-	router := mux.NewRouter()
+	router := gin.Default()
 
 	//Books
-	router.HandleFunc("/books", handlers.GetAllBooks).Methods("GET")
-	router.HandleFunc("/books", handlers.CreateBook).Methods("POST")
-	router.HandleFunc("/books/{id}", handlers.GetBookByID).Methods("GET")
-	router.HandleFunc("/books/{id}", handlers.UpdateBook).Methods("PUT")
-	router.HandleFunc("/books/{id}", handlers.DeleteBook).Methods("DELETE")
+	router.GET("/books", handlers.GetAllBooks)
+	router.POST("/books", handlers.CreateBook)
+	router.GET("/books/:id", handlers.GetBookByID)
+	router.PUT("/books/:id", handlers.UpdateBook)
+	router.DELETE("/books/:id", handlers.DeleteBook)
 
 	//Authors
-	router.HandleFunc("/authors", handlers.GetAllAuthors).Methods("GET")
-	router.HandleFunc("/authors", handlers.CreateAuthor).Methods("POST")
-	router.HandleFunc("/authors/{id}", handlers.GetAuthorByID).Methods("GET")
-	router.HandleFunc("/authors/{id}", handlers.UpdateAuthor).Methods("PUT")
-	router.HandleFunc("/authors/{id}", handlers.DeleteAuthor).Methods("DELETE")
+	router.GET("/authors", handlers.GetAllAuthors)
+	router.POST("/authors", handlers.CreateAuthor)
+	router.GET("/authors/:id", handlers.GetAuthorByID)
+	router.PUT("/authors/:id", handlers.UpdateAuthor)
+	router.DELETE("/authors/:id", handlers.DeleteAuthor)
 
 	//Category
-	router.HandleFunc("/categories", handlers.GetAllCategories).Methods("GET")
-	router.HandleFunc("/categories", handlers.CreateCategory).Methods("POST")
-	router.HandleFunc("/categories/{id}", handlers.GetCategoryByID).Methods("GET")
-	router.HandleFunc("/categories/{id}", handlers.UpdateCategory).Methods("PUT")
-	router.HandleFunc("/categories/{id}", handlers.DeleteCategory).Methods("DELETE")
+	router.GET("/categories", handlers.GetAllCategories)
+	router.POST("/categories", handlers.CreateCategory)
+	router.GET("/categories/:id", handlers.GetCategoryByID)
+	router.PUT("/categories/:id", handlers.UpdateCategory)
+	router.DELETE("/categories/:id", handlers.DeleteCategory)
 
-	http.ListenAndServe(":8080", router)
+	router.Run(":8080")
 }

@@ -1,134 +1,121 @@
 package handlers
 
 import (
-	"encoding/json"
+	"errors"
 	"go-learn/main/models"
 	"net/http"
 	"slices"
 	"strconv"
 
-	"github.com/gorilla/mux"
+	"github.com/gin-gonic/gin"
 )
 
 var categories = []models.Category{}
+var nextCategoryID = 1
 
-func GetAllCategories(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application.json")
-	json.NewEncoder(w).Encode(categories)
+func GetAllCategories(c *gin.Context) {
+	c.JSON(http.StatusOK, categories)
 }
 
-func CreateCategory(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application.json")
-
+func CreateCategory(c *gin.Context) {
 	var newCategory models.Category
 
-	err := json.NewDecoder(r.Body).Decode(&newCategory)
-
+	err := c.ShouldBindJSON(&newCategory)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "invalid json"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid json"})
 		return
 	}
 
-	validateCategory(newCategory, w)
+	err = validateCategory(newCategory)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
-	newCategory.ID = len(categories) - 1
+	newCategory.ID = nextCategoryID
+	nextCategoryID++
 
 	categories = append(categories, newCategory)
 
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(newCategory)
+	c.JSON(http.StatusCreated, newCategory)
 }
 
-func GetCategoryByID(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application.json")
-
-	vars := mux.Vars(r)
-	idStr := vars["id"]
+func GetCategoryByID(c *gin.Context) {
+	idStr := c.Param("id")
 
 	id, err := strconv.Atoi(idStr)
-
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "invalid category id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid Category id"})
+		return
 	}
 
-	for idx, category := range categories {
-		if idx == id {
-			json.NewEncoder(w).Encode(category)
+	for _, category := range categories {
+		if category.ID == id {
+			c.JSON(http.StatusOK, category)
 			return
 		}
 	}
 
-	w.WriteHeader(http.StatusNotFound)
-	json.NewEncoder(w).Encode(map[string]string{"error": "category not found"})
+	c.JSON(http.StatusNotFound, gin.H{"error": "Category not found"})
 }
 
-func UpdateCategory(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application.json")
-
-	vars := mux.Vars(r)
-	idStr := vars["id"]
+func UpdateCategory(c *gin.Context) {
+	idStr := c.Param("id")
 
 	id, err := strconv.Atoi(idStr)
-
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "invalid category id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid Category id"})
+		return
 	}
 
 	var updatedCategory models.Category
 
-	err = json.NewDecoder(r.Body).Decode(&updatedCategory)
-
+	err = c.ShouldBindJSON(&updatedCategory)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "invalid json"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid json"})
 		return
 	}
 
-	validateCategory(updatedCategory, w)
+	err = validateCategory(updatedCategory)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 
 	for i, category := range categories {
 		if category.ID == id {
 			categories[i].Name = updatedCategory.Name
-			json.NewEncoder(w).Encode(categories[i])
+			c.JSON(http.StatusOK, categories[i])
 			return
 		}
 	}
 
-	w.WriteHeader(http.StatusNotFound)
-	json.NewEncoder(w).Encode(map[string]string{"error": "category not found"})
+	c.JSON(http.StatusNotFound, gin.H{"error": "Category not found"})
 }
 
-func DeleteCategory(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application.json")
-
-	vars := mux.Vars(r)
-	idStr := vars["id"]
+func DeleteCategory(c *gin.Context) {
+	idStr := c.Param("id")
 
 	id, err := strconv.Atoi(idStr)
-
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "invalid category id"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid Category id"})
+		return
 	}
 
 	for i, category := range categories {
 		if category.ID == id {
 			categories = slices.Delete(categories, i, i+1)
+			c.JSON(http.StatusOK, gin.H{"message": "Category deleted"})
 			return
 		}
 	}
 
-	w.WriteHeader(http.StatusNotFound)
-	json.NewEncoder(w).Encode(map[string]string{"error": "category not found"})
+	c.JSON(http.StatusNotFound, gin.H{"error": "Category not found"})
 }
 
-func validateCategory(category models.Category, w http.ResponseWriter) {
+func validateCategory(category models.Category) error {
 	if category.Name == "" {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "category title is required"})
-		return
+		return errors.New("Category name is required")
 	}
+	return nil
 }
