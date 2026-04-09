@@ -1,9 +1,9 @@
 package main
 
 import (
+	"log"
 	"go-learn/main/database"
 	"go-learn/main/handlers"
-	"log"
 
 	"github.com/gin-gonic/gin"
 )
@@ -36,12 +36,6 @@ func main() {
 	router.PUT("/categories/:id", handlers.UpdateCategory)
 	router.DELETE("/categories/:id", handlers.DeleteCategory)
 
-<<<<<<< HEAD
-	err := http.ListenAndServe(":8080", router)
-	if err != nil {
-		panic(err)
-	}
-=======
 	//Diary entries
 	router.GET("/diary-entries", handlers.GetAllDiaryEntries)
 	router.POST("/diary-entries", handlers.CreateDiaryEntry)
@@ -51,5 +45,4 @@ func main() {
 	router.POST("/diary-entries/:id/metrics", handlers.AddDiaryMetric)
 
 	router.Run(":8080")
->>>>>>> gin-rest
 }
