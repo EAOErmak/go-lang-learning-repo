@@ -14,35 +14,24 @@ func main() {
 	}
 
 	router := gin.Default()
+	router.POST("/login", handlers.Login)
 
-	//Books
-	router.GET("/books", handlers.GetAllBooks)
-	router.POST("/books", handlers.CreateBook)
-	router.GET("/books/:id", handlers.GetBookByID)
-	router.PUT("/books/:id", handlers.UpdateBook)
-	router.DELETE("/books/:id", handlers.DeleteBook)
-
-	//Authors
-	router.GET("/authors", handlers.GetAllAuthors)
-	router.POST("/authors", handlers.CreateAuthor)
-	router.GET("/authors/:id", handlers.GetAuthorByID)
-	router.PUT("/authors/:id", handlers.UpdateAuthor)
-	router.DELETE("/authors/:id", handlers.DeleteAuthor)
-
-	//Category
-	router.GET("/categories", handlers.GetAllCategories)
-	router.POST("/categories", handlers.CreateCategory)
-	router.GET("/categories/:id", handlers.GetCategoryByID)
-	router.PUT("/categories/:id", handlers.UpdateCategory)
-	router.DELETE("/categories/:id", handlers.DeleteCategory)
+	protected := router.Group("/")
+	protected.Use(handlers.AuthMiddleware())
+	protected.GET("/dashboard", handlers.GetDashboard)
+	protected.GET("/dictionary-items", handlers.GetAllDictionaryItems)
+	protected.POST("/dictionary-items", handlers.CreateDictionaryItem)
+	protected.GET("/dictionary-items/:id", handlers.GetDictionaryItemByID)
+	protected.PUT("/dictionary-items/:id", handlers.UpdateDictionaryItem)
+	protected.DELETE("/dictionary-items/:id", handlers.DeleteDictionaryItem)
 
 	//Diary entries
-	router.GET("/diary-entries", handlers.GetAllDiaryEntries)
-	router.POST("/diary-entries", handlers.CreateDiaryEntry)
-	router.GET("/diary-entries/:id", handlers.GetDiaryEntryByID)
-	router.PUT("/diary-entries/:id", handlers.UpdateDiaryEntry)
-	router.DELETE("/diary-entries/:id", handlers.DeleteDiaryEntry)
-	router.POST("/diary-entries/:id/metrics", handlers.AddDiaryMetric)
+	protected.GET("/diary-entries", handlers.GetAllDiaryEntries)
+	protected.POST("/diary-entries", handlers.CreateDiaryEntry)
+	protected.GET("/diary-entries/:id", handlers.GetDiaryEntryByID)
+	protected.PUT("/diary-entries/:id", handlers.UpdateDiaryEntry)
+	protected.DELETE("/diary-entries/:id", handlers.DeleteDiaryEntry)
+	protected.POST("/diary-entries/:id/metrics", handlers.AddDiaryMetric)
 
 	router.Run(":8080")
 }

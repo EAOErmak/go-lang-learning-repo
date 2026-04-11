@@ -15,7 +15,6 @@ type DiaryEntry struct {
 	Duration    int           `gorm:"not null" json:"duration"`
 	Mood        *int16        `json:"mood,omitempty"`
 	Description string        `gorm:"size:1000;not null" json:"description"`
-	Status      EntryStatus   `gorm:"type:varchar(30);not null;index:idx_diary_status" json:"status"`
 }
 
 func (DiaryEntry) TableName() string {
@@ -30,7 +29,6 @@ func NewDiaryEntry(started, ended time.Time, mood *int16, description string) (*
 	entry := &DiaryEntry{
 		WhenStarted: started.UTC(),
 		WhenEnded:   ended.UTC(),
-		Status:      EntryStatusFailed,
 	}
 
 	if err := entry.UpdateMood(mood); err != nil {
@@ -42,7 +40,6 @@ func NewDiaryEntry(started, ended time.Time, mood *int16, description string) (*
 	}
 
 	entry.recalculateDuration()
-	entry.AutoUpdateStatusByTime(time.Now().UTC())
 
 	return entry, nil
 }
@@ -66,29 +63,6 @@ func (d *DiaryEntry) UpdateMood(mood *int16) error {
 	return nil
 }
 
-func (d *DiaryEntry) AutoUpdateStatusByTime(now time.Time) {
-	if d.Status == EntryStatusDeleted {
-		return
-	}
-
-	if now.Before(d.WhenStarted) {
-		d.Status = EntryStatusScheduled
-	} else if !now.After(d.WhenEnded) {
-		d.Status = EntryStatusActive
-	} else {
-		d.Status = EntryStatusFinished
-	}
-}
-
-func (d *DiaryEntry) ForceStatusWin() error {
-	if d.Status == EntryStatusDeleted {
-		return errors.New("deleted entry cannot change status")
-	}
-
-	d.Status = EntryStatusFinished
-	return nil
-}
-
 func (d *DiaryEntry) UpdateTime(started, ended time.Time) error {
 	if started.IsZero() || ended.IsZero() || !ended.After(started) {
 		return errors.New("invalid time range")
@@ -97,26 +71,8 @@ func (d *DiaryEntry) UpdateTime(started, ended time.Time) error {
 	d.WhenStarted = started.UTC()
 	d.WhenEnded = ended.UTC()
 	d.recalculateDuration()
-	d.AutoUpdateStatusByTime(time.Now().UTC())
 
 	return nil
-}
-
-func (d *DiaryEntry) ChangeStatus(newStatus EntryStatus) error {
-	if d.Status == EntryStatusDeleted {
-		return errors.New("deleted entry cannot change status")
-	}
-
-	if !newStatus.IsValid() {
-		return errors.New("invalid entry status")
-	}
-
-	d.Status = newStatus
-	return nil
-}
-
-func (d *DiaryEntry) MarkDeleted() {
-	d.Status = EntryStatusDeleted
 }
 
 func (d *DiaryEntry) AddMetric(item *EntryMetric) error {
@@ -139,14 +95,6 @@ func (d *DiaryEntry) RemoveMetric(metricID uint) {
 
 	d.Metrics[index].Detach()
 	d.Metrics = slices.Delete(d.Metrics, index, index+1)
-}
-
-func (d *DiaryEntry) IsWin() bool {
-	return d.Status == EntryStatusFinished
-}
-
-func (d *DiaryEntry) IsLose() bool {
-	return d.Status == EntryStatusFailed
 }
 
 func (d *DiaryEntry) recalculateDuration() {

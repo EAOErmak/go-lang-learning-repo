@@ -33,10 +33,6 @@ func InitDB() error {
 		return err
 	}
 
-	if err := syncDiarySchema(db); err != nil {
-		return err
-	}
-
 	DB = db
 	return nil
 }

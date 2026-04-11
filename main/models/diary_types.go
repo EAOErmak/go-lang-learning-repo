@@ -5,37 +5,27 @@ import (
 	"strings"
 )
 
-type EntryStatus string
-
-const (
-	EntryStatusScheduled EntryStatus = "SCHEDULED"
-	EntryStatusActive    EntryStatus = "ACTIVE"
-	EntryStatusFinished  EntryStatus = "FINISHED"
-	EntryStatusFailed    EntryStatus = "FAILED"
-	EntryStatusDeleted   EntryStatus = "DELETED"
-)
-
-func (s EntryStatus) IsValid() bool {
-	switch s {
-	case EntryStatusScheduled, EntryStatusActive, EntryStatusFinished, EntryStatusFailed, EntryStatusDeleted:
-		return true
-	default:
-		return false
-	}
-}
-
-func ParseEntryStatus(value string) (EntryStatus, error) {
-	status := EntryStatus(strings.ToUpper(strings.TrimSpace(value)))
-	if !status.IsValid() {
-		return "", fmt.Errorf("invalid entry status: %s", value)
-	}
-
-	return status, nil
-}
-
 type DictionaryType string
 
 const (
 	DictionaryTypeMetricName DictionaryType = "METRIC_NAME"
 	DictionaryTypeMetricUnit DictionaryType = "METRIC_UNIT"
 )
+
+func (t DictionaryType) IsValid() bool {
+	switch t {
+	case DictionaryTypeMetricName, DictionaryTypeMetricUnit:
+		return true
+	default:
+		return false
+	}
+}
+
+func ParseDictionaryType(value string) (DictionaryType, error) {
+	itemType := DictionaryType(strings.ToUpper(strings.TrimSpace(value)))
+	if !itemType.IsValid() {
+		return "", fmt.Errorf("invalid dictionary type: %s", value)
+	}
+
+	return itemType, nil
+}

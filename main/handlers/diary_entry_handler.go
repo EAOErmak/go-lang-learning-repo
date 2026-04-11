@@ -3,7 +3,6 @@ package handlers
 import (
 	"go-learn/main/models"
 	"net/http"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -16,16 +15,6 @@ func GetAllDiaryEntries(c *gin.Context) {
 	}
 
 	query := preloadDiaryEntry(db)
-
-	if statusRaw := strings.TrimSpace(c.Query("status")); statusRaw != "" {
-		status, err := models.ParseEntryStatus(statusRaw)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-			return
-		}
-
-		query = query.Where("status = ?", status)
-	}
 
 	var entries []models.DiaryEntry
 	if err := query.Find(&entries).Error; err != nil {
@@ -153,16 +142,11 @@ func DeleteDiaryEntry(c *gin.Context) {
 
 	var entry models.DiaryEntry
 	if err := db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.First(&entry, entryID).Error; err != nil {
+		if err := preloadDiaryEntry(tx).First(&entry, entryID).Error; err != nil {
 			return err
 		}
 
-		entry.MarkDeleted()
-		if err := tx.Save(&entry).Error; err != nil {
-			return err
-		}
-
-		return preloadDiaryEntry(tx).First(&entry, entry.ID).Error
+		return tx.Delete(&entry).Error
 	}); err != nil {
 		writeDiaryError(c, err)
 		return
